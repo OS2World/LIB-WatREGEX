@@ -1,0 +1,92 @@
+# Machine type -5r Pent -6r Pent Pro
+MACHINE= -6r -fp6
+
+
+REGSRC = ..\src
+TSTSRC = ..\test
+
+!include maketmp.inc
+
+CC = wcl386
+LD = wlink
+LB = wlib
+
+!ifeqi MODE D
+DEBUG =1
+!endif
+
+!ifeqi TARGET OS2
+SYSCOMP = os2
+SYSLINK = os2v2
+INCLUDE = $(REGSRC);$(TSTSRC);$(%watcom)\h;$(%watcom)\h\os2
+EXT     = exe
+!else ifeqi TARGET NT
+SYSCOMP = nt
+SYSLINK = nt
+INCLUDE = $(REGSRC);$(TSTSRC);$(%watcom)\h;$(%watcom)\h\nt
+EXT     = exe
+!else ifeqi TARGET LINUX
+SYSCOMP = linux
+SYSLINK = linux
+INCLUDE = $(REGSRC);$(TSTSRC);$(%watcom)\lh
+EXT     = elf
+!endif
+
+!ifndef DEBUG
+LDDEBUG   = op el
+CDEBUG    = -d0 -wcd302
+OPT       = -otexan
+DEFS      = -DPOSIX_MISTAKE -DHIDENREF
+REGLIB    = regex.lib
+TSTPRG    = re
+!else
+LDDEBUG   = d all op map op symf
+CDEBUG    = -d3 -of
+OPT       = -od
+DEFS      = -DREDEBUG -DPOSIX_MISTAKE
+REGLIB    = regex_d.lib
+TSTPRG    = re_d
+!endif
+
+COMMONC   = -w4 -e25 -zq -bt=$(SYSCOMP) -bm -mf
+CFLAGS    = $(DEFS) -i=$(INCLUDE) $(CDEBUG) $(OPT) $(MACHINE) $(COMMONC)
+LDFLAGS   = $(LDDEBUG) op maxe=25
+LIBFLAGS  = -b -c -n -p=512
+
+SRCS = $(REGSRC)\regfree.c $(REGSRC)\regerror.c $(REGSRC)\regexec.c $(REGSRC)\regcomp.c
+OBJS = regfree.obj regerror.obj regcomp.obj regexec.obj
+
+TEST = $(TSTSRC)\main.c $(TSTSRC)\debug.c $(TSTSRC)\split.c
+TOBJ = main.obj debug.obj split.obj
+
+all: $(REGLIB) $(TSTPRG).$(EXT) release
+
+$(REGLIB):
+  $(CC) -c $(CFLAGS) $(SRCS)
+  $(LB) $(LIBFLAGS) $(REGLIB) $(OBJS)
+
+$(TSTPRG).$(EXT): $(REGLIB)
+  $(CC) -c $(CFLAGS) $(TEST)
+  $(LD) NAME $(TSTPRG) SYSTEM $(SYSLINK) $(LDFLAGS) LIB $(REGLIB) FILE {$(TOBJ)}
+
+release: .SYMBOLIC
+  copy ..\src\regex.h ..\$(TARGET)
+  copy ..\build\$(TSTPRG).$(EXT) ..\$(TARGET)
+  copy ..\build\$(REGLIB) ..\$(TARGET)
+
+runtests: .SYMBOLIC
+  re tests
+  re -el tests
+  re -er tests
+
+clean : .SYMBOLIC
+  -@rm maketmp.*
+  -@rm *.obj
+  -@rm *.sym
+  -@rm *.err
+  -@rm *.lst
+  -@rm *.map
+  -@rm *.lib
+  -@rm *.exe
+  -@rm *.elf
+
